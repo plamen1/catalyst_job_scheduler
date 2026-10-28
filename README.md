@@ -149,6 +149,7 @@ roles/              TODO - not yet built (role skeleton, filter_plugins,
   the standard this tool is built against.
 - [docs/adr/0001-no-approval-gate-prime-parity.md](docs/adr/0001-no-approval-gate-prime-parity.md)
 - [docs/adr/0002-no-catchup-firing-on-missed-window.md](docs/adr/0002-no-catchup-firing-on-missed-window.md)
+- [docs/adr/0003-initial-job-account-and-ha-scoping.md](docs/adr/0003-initial-job-account-and-ha-scoping.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md) — maturity tracked against
   [doc 10](https://github.com/plamen1/automation-design/blob/main/docs/10-implementation-roadmap.md)'s
   T1–T5 checkboxes.

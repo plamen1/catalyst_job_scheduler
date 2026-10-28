@@ -6,21 +6,26 @@ architecture, scored against
 [doc 10's tool-maturity levels](https://github.com/plamen1/automation-design/blob/main/docs/10-implementation-roadmap.md#102-tool-maturity-phases)
 (T1 → T5).
 
+**This file is a maturity dashboard, not a decision log** (doc 06
+§6.2/§6.3) — every real design decision lives in `docs/adr/`, every
+real-run finding will live in `docs/findings/<component>.md` once
+there's a real executor to find bugs in. This file points at those
+rather than narrating them.
+
 ## Current maturity: pre-T1 — scoped and scaffolded, no role/executor yet (2026-10-28)
 
 This tool was scoped entirely through a design conversation before any
 Ansible role or Catalyst Center API integration was written (doc 11
 §11.0: "a process checklist, not a design generator" — the design had
 to exist first). What's actually done as of this entry: the input
-schema (`schema/models.py`), its unit tests, the two ADRs for this
-tool's deliberate deviations from the rest of this design family, and
-the day-one skeleton files (`.gitignore`, `.ansible-lint`,
-`.pre-commit-config.yaml`, `requirements-dev.txt`,
-`scripts/{setup-python-env,deploy,rollback}.sh`). **Nothing below T1's
-"Idempotent role" item is built yet** — no `roles/`, no filter plugins,
-no `netauto` wiring, no real Catalyst Center API calls. See "Scoping
-decisions" below for the full record of what was decided and why,
-before treating anything here as more built than it is.
+schema (`schema/models.py`), its unit tests, the three ADRs for this
+tool's foundational scoping and deliberate deviations from the rest of
+this design family (`docs/adr/`), and the day-one skeleton files
+(`.gitignore`, `.ansible-lint`, `.pre-commit-config.yaml`,
+`requirements-dev.txt`, `scripts/{setup-python-env,deploy,rollback}.sh`).
+**Nothing below T1's "Idempotent role" item is built yet** — no
+`roles/`, no filter plugins, no `netauto` wiring, no real Catalyst
+Center API calls.
 
 ---
 
@@ -110,7 +115,9 @@ test. Not reachable yet.
       text per the scoping decision below) — this is `netauto`'s job
       once this tool is wired in as a domain. Not done yet.
 - [ ] `list`/`cancel` commands for pending scheduled jobs — agreed as
-      in-scope for v1 (see "Scoping decisions" below), not built.
+      in-scope for v1 (see
+      [ADR-0003](adr/0003-initial-job-account-and-ha-scoping.md)), not
+      built.
 - [ ] No override/approval flow to rehearse — deliberately absent, see
       ADR-0001.
 - [ ] Tagged release.
@@ -144,12 +151,10 @@ this stage — left as a stub per doc 10 §10.4.
 - [ ] `docs/architecture.md` + `docs/pipelines/*.md` + diagrams
       (mandatory) — not started.
 - [ ] `docs/demo-scenarios.md` — not started.
-- [x] ADR for each guardrail deviation from doc 02's default —
-      [0001](adr/0001-no-approval-gate-prime-parity.md) (no approval
-      gate) and
-      [0002](adr/0002-no-catchup-firing-on-missed-window.md) (no
-      catch-up firing) — both written 2026-10-28, before any code that
-      depends on either decision.
+- [x] ADR for every foundational/guardrail decision — see `docs/adr/`
+      (three as of 2026-10-28: no approval gate, no catch-up firing,
+      initial job/account/HA scoping) — all written before any code
+      that depends on them.
 
 ## Version-control tasks
 
@@ -164,68 +169,16 @@ this stage — left as a stub per doc 10 §10.4.
 
 ---
 
-## Scoping decisions (2026-10-26/28, tool owner, pre-implementation)
+## Open questions (revisit later, don't assume an answer)
 
-Recorded here in full because this is where every other tool in this
-family keeps its real decision history — not duplicated from memory,
-this is the primary record; a session memory entry points back here.
+See [ADR-0003](adr/0003-initial-job-account-and-ha-scoping.md) for the
+full foundational-scoping record. Still genuinely undecided as of
+2026-10-28:
 
-- **Job shape**: operator picks a Catalyst Center (from a configured
-  list), a template (from that Catalyst Center's own template
-  catalog — no custom per-job parameters; whatever variables the
-  template itself needs are Catalyst Center's own concern), and
-  switches (resolved **live from that Catalyst Center's inventory
-  API**, not NetBox — avoids a NetBox-cleanup dependency for v1). A
-  single point-in-time fire, not a start/end window.
-- **No approval gate** — parity with the current Prime-based GNOC
-  workflow, which has none either. See
-  [ADR-0001](adr/0001-no-approval-gate-prime-parity.md).
-- **Account model**: GNOC engineers' own accounts join the existing
-  `netauto-operators` group (same tier every other operator uses). The
-  actual generated systemd units run as a new, dedicated
-  **`gnoc-service`** account, parallel to `aws_prefix_update`'s own
-  `aws-prefix-svc` (doc 14 §14.1) — minimally scoped, exists only to
-  tag "this ran as a GNOC-related job" in ownership/ACLs/the audit
-  trail.
-- **Unit-creation privilege model**: a **root-mediated sudo helper**
-  that takes only a validated job id and installs a fixed template
-  unit — mirrors the sudo-mediated pattern `aws_prefix_update` already
-  uses, chosen over `gnoc-service`'s own user-level systemd
-  (`systemd-run --user`) specifically so a GNOC engineer invoking this
-  tool never gains a general root-reachable write path.
-- **HA/SPOF**: raised as a side question (the automation VM is a single
-  point of failure) — explicitly **not** solved with a second VM;
-  solved instead with `Persistent=false` (a missed window stays
-  missed, never fires late) plus a durable `armed`/`fired`/`missed`
-  audit trail and a one-time missed-job Webex alert, so the miss is
-  visible rather than silent. See
-  [ADR-0002](adr/0002-no-catchup-firing-on-missed-window.md). A second
-  automation VM was explicitly considered and rejected as
-  disproportionate infrastructure for this tool's own risk profile.
-- **Duplicate-call prevention**: a `fired` audit-log entry is written
-  *before* the Catalyst Center deploy call, not after (claim, then
-  act) — refuses if `fired` already exists for a job id. `run-now`
-  against an already-armed job id is refused unless that job is
-  cancelled first.
-- **Switch/template overlap**: two different jobs (different templates)
-  are explicitly allowed against the same switches at different times —
-  the guardrail is a **minimum time-spacing buffer** between two armed
-  jobs that share a switch (long enough to cover the slower template's
-  expected deploy+poll duration), not a blanket "one pending job per
-  switch." Corrected mid-scoping after an initial, too-strict draft
-  ("refuse if any switch already has any pending job") was flagged by
-  the tool owner as wrong.
-- **Per-device success**: a template deploy to N switches can partially
-  succeed. Plan: report per-device pass/fail; overall job success only
-  if *all* devices succeeded.
-- **Repo/remote**: new standalone repo
-  (`github.com/plamen1/catalyst_job_scheduler`), not bolted onto
-  `aws_prefix_update` or folded into `netauto` itself — wired into
-  `netauto` as a third domain once the role exists.
-- **Still open, deliberately not decided yet**: the missed-job sweep's
-  own cadence/grace-period length (needs a real executor's typical
-  deploy+poll duration first, not a guess); the protected-device
-  deny-list's real content; whether Catalyst Center's API version in
-  use supports a template preview (dry-run guardrail depends on this);
-  the rollback model (inverse-via-Catalyst-Center vs. a second,
-  operator-chosen "undo" template — genuinely undecided, not defaulted).
+- The missed-job sweep's own cadence/grace-period length — needs a
+  real executor's typical deploy+poll duration first, not a guess.
+- The protected-device deny-list's real content.
+- Whether the Catalyst Center API version in use supports a template
+  preview (the dry-run guardrail depends on this).
+- The rollback model — inverse-via-Catalyst-Center vs. a second,
+  operator-chosen "undo" template. Genuinely undecided, not defaulted.
