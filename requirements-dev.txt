@@ -1,0 +1,67 @@
+# Dev/CI tooling — not required to run the playbooks themselves.
+# See automation-design doc 03 §3.2 for what each tool is for.
+#
+# HOW TO INSTALL THIS (on a Linux box — most of these tools don't run
+# natively on Windows; `ansible-lint` specifically cannot run on
+# Windows at all, missing the POSIX `grp` module):
+#
+#   Automatic (recommended) — installs this file plus everything else
+#   this project needs (venv, Galaxy collections, the pre-commit git
+#   hook):
+#     ./scripts/setup-python-env.sh
+#
+#   Manual, if you'd rather not run the script:
+#     python3 -m venv .venv
+#     source .venv/bin/activate
+#     pip install --upgrade pip
+#     pip install -r requirements-dev.txt
+#     ansible-galaxy collection install -r requirements.yml
+#     pre-commit install
+#
+# **`pre-commit install` is not optional, and is easy to forget** —
+# `.pre-commit-config.yaml` existing in the repo does NOTHING on its
+# own (real, confirmed gap on aws_prefix_update, 2026-10-15 — see that
+# repo's docs/ROADMAP.md). The setup script above exists specifically
+# so this step is never skipped.
+#
+# No Python file in this tool imports `ansible` directly (every filter
+# plugin is plain, duck-typed Python) — so black/flake8/mypy/bandit/
+# pytest/detect-secrets all run fine without `ansible-core` installed
+# at all. `ansible-lint` is the one tool that genuinely needs it, to
+# lint the YAML task files.
+#
+# Real version-skew finding against the Automation VM (carried forward
+# from obj_fw_block/aws_prefix_update's own requirements-dev.txt,
+# unverified yet on THIS tool specifically — re-check before assuming
+# it still applies): that machine ran Python 3.9 at the time, and every
+# PyPI `ansible-lint` release >=25 requires Python >=3.10 — a pinned
+# floor makes `pip install -r requirements-dev.txt` fail OUTRIGHT.
+# `ansible-lint` is left deliberately UNPINNED below for exactly this
+# reason. Re-confirm the automation VM's actual Python version before
+# changing this.
+pydantic>=2,<3
+pytest>=8
+black>=24
+flake8>=7
+mypy>=1.10
+bandit>=1.7
+yamllint>=1.35
+pre-commit>=3
+# Pin this to match .pre-commit-config.yaml's own detect-secrets hook
+# `rev:` exactly — the two running different versions is how a
+# baseline silently drifts between a local run and CI.
+detect-secrets==1.5.0
+
+# Below this line: CI-only (ansible-lint cannot run on Windows; these
+# aren't needed for any of the tools above).
+ansible-core>=2.13
+ansible-lint
+# This tool connects to Catalyst Center over its REST API (httpapi
+# connection method, doc 01 §1.7 — NOT network_cli; there is no device
+# CLI session here, unlike obj_fw_block/aws_prefix_update). TODO once
+# the role is built: confirm whether the `cisco.dnac` Ansible
+# collection's own httpapi plugin needs `dnacentersdk` installed
+# separately on the controller, or whether `requirements.yml` pinning
+# the collection is sufficient on its own — check the collection's real
+# install docs for the Catalyst Center API version actually in use
+# before assuming either way.

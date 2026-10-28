@@ -1,0 +1,19 @@
+---
+# Without this file, `ansible-lint` run bare (the invocation both CI
+# and scripts/setup-python-env.sh's own sanity-check line use)
+# recursively scans the WHOLE working directory, not just what's
+# actually committed. CI never notices because its checkout is always
+# clean - the directories below don't exist there at all. A real
+# deployment host's working tree DOES have them (lab-specific
+# inventory, vault-protected credentials, runtime output), and they
+# were never written to satisfy a strict YAML parser. See
+# aws_prefix_update/.ansible-lint for the real-world finding this
+# guards against (a fatal, unskippable load-failure on exactly this
+# class of file).
+exclude_paths:
+  - inventories/testing/
+  - inventories/production/group_vars/
+  - inventories/production/host_vars/
+  - authentication/
+  - output_files/
+  - .venv/

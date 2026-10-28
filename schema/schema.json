@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "RunTrigger": {
+      "enum": [
+        "manual",
+        "scheduled"
+      ],
+      "title": "RunTrigger",
+      "type": "string"
+    }
+  },
+  "description": "One Catalyst Center template-deployment job.\n\n`catalyst_center` and `template_id` are opaque identifiers chosen\nfrom lists netauto itself resolves (the configured Catalyst Center\ninventory, and that CC's own template catalog) - this schema only\nvalidates that something was actually chosen, not that it's a real\nid; a real id gets confirmed live against the CC's own API at\ndispatch time, the same \"selected from a list, re-validated against\nthe live system before acting\" shape aws_prefix_update already uses\nfor its target-confirmation preview.\n\n`switches` is resolved live from the chosen Catalyst Center's own\ninventory API at job-definition time (not NetBox - see\ndocs/ROADMAP.md), so by the time this model sees it, it's already a\nlist of real device identifiers an operator picked from a live list,\nnot typed free text.",
+  "properties": {
+    "catalyst_center": {
+      "minLength": 1,
+      "title": "Catalyst Center",
+      "type": "string"
+    },
+    "template_id": {
+      "minLength": 1,
+      "title": "Template Id",
+      "type": "string"
+    },
+    "switches": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 25,
+      "minItems": 1,
+      "title": "Switches",
+      "type": "array"
+    },
+    "run_trigger": {
+      "$ref": "#/$defs/RunTrigger",
+      "default": "scheduled"
+    },
+    "scheduled_time": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scheduled Time"
+    },
+    "justification": {
+      "minLength": 1,
+      "title": "Justification",
+      "type": "string"
+    },
+    "requester": {
+      "minLength": 1,
+      "title": "Requester",
+      "type": "string"
+    }
+  },
+  "required": [
+    "catalyst_center",
+    "template_id",
+    "switches",
+    "justification",
+    "requester"
+  ],
+  "title": "JobRequest",
+  "type": "object"
+}

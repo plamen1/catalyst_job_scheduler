@@ -1,0 +1,41 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.idea/
+.mypy_cache/
+
+# Structured audit log - runtime record of who scheduled/ran what
+# (armed/fired/missed events), never committed. See
+# docs/adr/0002-no-catchup-firing-on-missed-window.md.
+**/audit_log.jsonl
+
+# Vault password files (ANSIBLE_VAULT_PASSWORD_FILE) - never committed
+# under any name, added proactively before any vault file exists.
+*.secret
+**/vault_pass*
+**/.vault_pass*
+
+# HOME= for the gnoc-service systemd units (deploy/systemd/) - holds
+# Ansible's own ~/.ansible/tmp/ etc. for a service account with no real
+# home directory. Runtime service state, never source. Same pattern as
+# aws_prefix_update's aws-prefix-svc.
+.service-home/
+
+# Runtime output - local-only by design (see scripts/deploy.sh's own
+# "Shared runtime-state directories" header comment for why this isn't
+# copied per release either, once deployed via tag-pinning).
+output_files/
+
+# authentication/ and inventories/{testing,production} are
+# DELIBERATELY NOT listed here - see aws_prefix_update's own .gitignore
+# and docs/ROADMAP.md for the real gap this avoids repeating: a fresh
+# `git clone` per tagged release (scripts/deploy.sh) never has anything
+# gitignored, which breaks the real run outright on every new release.
+# Commit these directly, vault-encrypting anything sensitive, instead
+# of gitignoring them.
+
+# Generated systemd unit files themselves are never tracked here - they
+# get written straight to /etc/systemd/system on the automation VM by
+# the root-mediated sudo helper (docs/adr/0001), not checked out from
+# this repo.
